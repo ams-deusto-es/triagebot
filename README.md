@@ -96,5 +96,6 @@ Los detalles obligatorios están en:
 
 ## Equipo
 
-- **Nombres:** Alberto, Davic
+- **Nombres:** Alberto, David
 - **Metodología:** A (Vibe coding)
+.
