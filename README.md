@@ -95,7 +95,5 @@ Los detalles obligatorios están en:
 6. Los tests son la red de seguridad.
 
 ## Equipo
-
-Nombres:
-
-Metodología: `Vibe` / `Spec-Driven`
+Nombres: Alberto, Davic
+Metodología: A (Vibe coding)
