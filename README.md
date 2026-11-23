@@ -96,6 +96,11 @@ Los detalles obligatorios están en:
 
 ## Equipo
 
+<<<<<<< HEAD
 Nombres: David
 
 Metodología: `Vibe`
+=======
+- **Nombres:** Alberto, David
+- **Metodología:** A (Vibe coding)
+>>>>>>> 159dd3f6a57161a7829e2fc7c7aa025438dd435a
