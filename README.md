@@ -98,4 +98,3 @@ Los detalles obligatorios están en:
 
 - **Nombres:** Alberto, David
 - **Metodología:** A (Vibe coding)
-.
