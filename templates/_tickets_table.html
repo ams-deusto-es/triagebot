@@ -1,3 +1,15 @@
+{% set category_styles = {
+  "bug": "bg-red-100 text-red-800",
+  "urgent": "bg-orange-100 text-orange-800",
+  "feature_request": "bg-sky-100 text-sky-800",
+  "question": "bg-slate-100 text-slate-700",
+} %}
+{% set priority_styles = {
+  "P1": "border-red-300 bg-red-50 text-red-800",
+  "P2": "border-amber-300 bg-amber-50 text-amber-800",
+  "P3": "border-slate-300 bg-white text-slate-700",
+} %}
+<p class="mb-2 text-sm text-slate-500">{{ tickets | length }} ticket(s)</p>
 <table class="min-w-full divide-y divide-slate-200 bg-white shadow-sm ring-1 ring-slate-200 rounded-lg overflow-hidden">
   <thead class="bg-slate-100">
     <tr>
@@ -10,7 +22,51 @@
       <th class="px-3 py-2 text-left text-sm font-semibold">Creado</th>
     </tr>
   </thead>
-  <tbody id="tickets-table-body">
-    <!-- TODO: renderizar tickets con Jinja2 -->
+  <tbody id="tickets-table-body" class="divide-y divide-slate-100">
+    {% for ticket in tickets %}
+    <tr class="align-top"
+        hx-patch="/ui/tickets/{{ ticket.id }}"
+        hx-trigger="change"
+        hx-include="closest tr, #filters"
+        hx-target="#tickets-table"
+        hx-swap="innerHTML">
+      <td class="px-3 py-2 text-sm text-slate-500">{{ ticket.id }}</td>
+      <td class="px-3 py-2 text-sm">
+        <div class="font-medium">{{ ticket.title }}</div>
+        <div class="mt-1 max-w-md text-slate-500 line-clamp-2" title="{{ ticket.description }}">{{ ticket.description }}</div>
+      </td>
+      <td class="px-3 py-2 text-sm">
+        <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ category_styles[ticket.category] }}">{{ ticket.category }}</span>
+      </td>
+      <td class="px-3 py-2 text-sm">
+        <select name="ticket_priority" aria-label="Prioridad del ticket {{ ticket.id }}"
+                class="rounded-md border px-2 py-1 text-xs font-semibold {{ priority_styles[ticket.priority] }}">
+          {% for value in priorities %}
+          <option value="{{ value }}" {% if value == ticket.priority %}selected{% endif %}>{{ value }}</option>
+          {% endfor %}
+        </select>
+      </td>
+      <td class="px-3 py-2 text-sm">
+        <div class="flex flex-wrap gap-1">
+          {% for tag in ticket.tags %}
+          <span class="rounded bg-indigo-50 px-1.5 py-0.5 text-xs text-indigo-700">{{ tag }}</span>
+          {% endfor %}
+        </div>
+      </td>
+      <td class="px-3 py-2 text-sm">
+        <select name="ticket_status" aria-label="Estado del ticket {{ ticket.id }}"
+                class="rounded-md border border-slate-300 px-2 py-1 text-xs">
+          {% for value in statuses %}
+          <option value="{{ value }}" {% if value == ticket.status %}selected{% endif %}>{{ value }}</option>
+          {% endfor %}
+        </select>
+      </td>
+      <td class="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">{{ ticket.created_at[:16] | replace("T", " ") }}</td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="7" class="px-3 py-6 text-center text-sm text-slate-500">No hay tickets con estos filtros.</td>
+    </tr>
+    {% endfor %}
   </tbody>
 </table>
