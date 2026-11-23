@@ -95,5 +95,6 @@ Los detalles obligatorios están en:
 6. Los tests son la red de seguridad.
 
 ## Equipo
-Nombres: Alberto, Davic
-Metodología: A (Vibe coding)
+
+- **Nombres:** Alberto, Davic
+- **Metodología:** A (Vibe coding)
