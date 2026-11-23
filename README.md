@@ -96,6 +96,6 @@ Los detalles obligatorios están en:
 
 ## Equipo
 
-Nombres: David y Alberto
+Nombres: David
 
 Metodología: `Vibe`
