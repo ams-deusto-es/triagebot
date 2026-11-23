@@ -37,6 +37,15 @@ Reglas:
   (por ejemplo "login", "pdf", "export", "performance")."""
 
 
+def is_coherent(category: str, priority: str) -> bool:
+    """Reglas de coherencia: una question nunca es P1 y un urgent siempre es P1."""
+    if category == "question" and priority == "P1":
+        return False
+    if category == "urgent" and priority != "P1":
+        return False
+    return True
+
+
 def classify_ticket(title: str, description: str) -> dict:
     """Clasifica un ticket. Nunca lanza excepciones: ante cualquier problema, fallback."""
     try:
@@ -96,6 +105,8 @@ def _parse_and_validate(content: str) -> dict:
     priority = data.get("priority")
     tags = data.get("tags", [])
     if category not in ALLOWED_CATEGORIES or priority not in ALLOWED_PRIORITIES:
+        return dict(FALLBACK_CLASSIFICATION)
+    if not is_coherent(category, priority):
         return dict(FALLBACK_CLASSIFICATION)
     if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
         return dict(FALLBACK_CLASSIFICATION)

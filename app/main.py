@@ -33,6 +33,7 @@ def classify_safely(title: str, description: str) -> dict:
         if (
             category in ALLOWED_CATEGORIES
             and priority in ALLOWED_PRIORITIES
+            and classifier.is_coherent(category, priority)
             and isinstance(tags, list)
             and all(isinstance(tag, str) for tag in tags)
         ):
