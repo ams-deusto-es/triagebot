@@ -1,0 +1,11 @@
+{% if errors %}
+  <ul class="text-red-700">
+    {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+  </ul>
+{% elif created %}
+  <span class="text-emerald-700">
+    Ticket #{{ created.id }} creado:
+    <strong>{{ created.category }}</strong> · <strong>{{ created.priority }}</strong>
+    {%- if created.tags %} · {{ created.tags | join(", ") }}{% endif %}
+  </span>
+{% endif %}
