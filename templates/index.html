@@ -121,6 +121,29 @@
       </form>
     </section>
 
+    <section class="mt-6 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <h2 class="text-lg font-semibold"><span class="t-d">Técnicos</span><span class="t-b">&gt; operadores_de_guardia</span></h2>
+      <form class="mt-3 flex flex-wrap items-end gap-3"
+            hx-post="/ui/technicians"
+            hx-target="#technicians"
+            hx-swap="innerHTML"
+            hx-disabled-elt="find button"
+            hx-on::after-request="if (event.detail.xhr.getResponseHeader('HX-Trigger')) this.reset()">
+        <div>
+          <label for="technician-name" class="block text-sm font-medium">Nombre</label>
+          <input id="technician-name" name="name" type="text" required maxlength="100"
+                 class="mt-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm">
+        </div>
+        <button type="submit"
+                class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
+          <span class="t-d">Dar de alta</span><span class="t-b">[ RECLUTAR ]</span>
+        </button>
+      </form>
+      <div id="technicians" class="mt-3">
+        {% include "_technicians.html" %}
+      </div>
+    </section>
+
     <section class="mt-6">
       <form id="filters" class="flex flex-wrap items-end gap-3"
             hx-get="/ui/tickets"
@@ -146,12 +169,24 @@
           <label for="filter-status" class="block text-sm font-medium">Estado</label>
           <select id="filter-status" name="status" class="mt-1 rounded-md border border-slate-300 px-2 py-1 text-sm">
             <option value="">Todos</option>
-            {% for value in statuses %}<option value="{{ value }}">{{ value }}</option>{% endfor %}
+            {% for value in statuses %}<option value="{{ value }}">{{ status_labels[value] }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="filter-overdue" class="block text-sm font-medium">Vencimiento</label>
+          <select id="filter-overdue" name="overdue" class="mt-1 rounded-md border border-slate-300 px-2 py-1 text-sm">
+            <option value="">Todos</option>
+            <option value="true">🚩 Vencidos</option>
+            <option value="false">En plazo</option>
           </select>
         </div>
       </form>
 
-      <div id="tickets-table" class="mt-4 overflow-x-auto">
+      <div id="tickets-table" class="mt-4 overflow-x-auto"
+           hx-get="/ui/tickets"
+           hx-trigger="technicians-changed from:body"
+           hx-include="#filters, #sort-state-sort, #sort-state-order"
+           hx-swap="innerHTML">
         {% include "_tickets_table.html" %}
       </div>
     </section>
