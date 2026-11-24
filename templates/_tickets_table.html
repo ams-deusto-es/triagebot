@@ -31,6 +31,8 @@
       {{ sortable("priority", "Prioridad") }}
       <th class="px-3 py-2 text-left text-sm font-semibold">Tags</th>
       {{ sortable("status", "Estado") }}
+      <th class="px-3 py-2 text-left text-sm font-semibold">Responsable</th>
+      {{ sortable("due", "Vence") }}
       {{ sortable("created_at", "Creado") }}
     </tr>
   </thead>
@@ -69,15 +71,30 @@
         <select name="ticket_status" aria-label="Estado del ticket {{ ticket.id }}"
                 class="rounded-md border border-slate-300 px-2 py-1 text-xs">
           {% for value in statuses %}
-          <option value="{{ value }}" {% if value == ticket.status %}selected{% endif %}>{{ value }}</option>
+          <option value="{{ value }}" {% if value == ticket.status %}selected{% endif %}>{{ status_labels[value] }}</option>
           {% endfor %}
         </select>
+        <div class="mt-1 text-xs text-slate-500 whitespace-nowrap"
+             title="Desde {{ ticket.status_changed_at[:16] | replace('T', ' ') }} UTC">desde hace {{ ticket.status_changed_at | since }}</div>
+      </td>
+      <td class="px-3 py-2 text-sm">
+        <select name="ticket_assignee" aria-label="Responsable del ticket {{ ticket.id }}"
+                class="rounded-md border border-slate-300 px-2 py-1 text-xs">
+          <option value="" {% if ticket.assignee_id is none %}selected{% endif %}>Sin asignar</option>
+          {% for technician in technicians %}
+          <option value="{{ technician.id }}" {% if technician.id == ticket.assignee_id %}selected{% endif %}>{{ technician.name }}</option>
+          {% endfor %}
+        </select>
+      </td>
+      <td class="px-3 py-2 text-xs whitespace-nowrap {{ 'font-semibold text-red-700' if ticket.overdue else 'text-slate-500' }}">
+        {% if ticket.overdue %}<span role="img" aria-label="Vencido" title="Vencido">🚩</span>{% endif %}
+        {{ ticket.due_at[:16] | replace("T", " ") }}
       </td>
       <td class="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">{{ ticket.created_at[:16] | replace("T", " ") }}</td>
     </tr>
     {% else %}
     <tr>
-      <td colspan="7" class="px-3 py-6 text-center text-sm text-slate-500"><span class="t-d">No hay tickets con estos filtros.</span><span class="t-b">Nada que ver aquí. Los usuarios aún no han roto nada.</span></td>
+      <td colspan="9" class="px-3 py-6 text-center text-sm text-slate-500"><span class="t-d">No hay tickets con estos filtros.</span><span class="t-b">Nada que ver aquí. Los usuarios aún no han roto nada.</span></td>
     </tr>
     {% endfor %}
   </tbody>
