@@ -73,3 +73,40 @@ def test_ui_rejects_duplicate_ticket_with_message(client):
     assert response.headers["HX-Retarget"] == "#form-error"
     assert "HX-Trigger" not in response.headers
     assert len(client.get("/tickets").json()) == 1
+
+
+def test_concurrent_duplicates_create_only_one_ticket(tmp_path, monkeypatch):
+    """Altas simultáneas del mismo ticket: todas pasan la comprobación previa mientras el
+    LLM clasifica, pero solo una debe insertarse; el resto acaba en duplicado."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.main import DuplicateTicketError, create_classified_ticket
+    from app.models import TicketCreate
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'test.db'}")
+    workers = 8
+    # Nadie sale del «LLM» hasta que todos han pasado la comprobación previa.
+    barrier = threading.Barrier(workers, timeout=10)
+
+    def slow_classifier(title, description):
+        barrier.wait()
+        return {"category": "bug", "priority": "P2", "tags": []}
+
+    monkeypatch.setattr("app.classifier.classify_ticket", slow_classifier)
+
+    def create(_):
+        try:
+            return create_classified_ticket(TicketCreate(**TICKET))["id"]
+        except DuplicateTicketError as exc:
+            return ("dup", exc.existing["id"])
+
+    with ThreadPoolExecutor(workers) as pool:
+        results = list(pool.map(create, range(workers)))
+
+    created = [r for r in results if not isinstance(r, tuple)]
+    duplicates = [r[1] for r in results if isinstance(r, tuple)]
+    assert len(created) == 1
+    assert duplicates == [created[0]] * (workers - 1)
+    client = TestClient(app)
+    assert len(client.get("/tickets").json()) == 1

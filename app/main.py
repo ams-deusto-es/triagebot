@@ -80,7 +80,12 @@ def create_classified_ticket(payload: TicketCreate) -> dict:
     if existing is not None:
         raise DuplicateTicketError(existing)
     classification = classify_safely(payload.title, payload.description)
-    return db.create_ticket(payload.title, payload.description, **classification)
+    # Se vuelve a comprobar al insertar, de forma atómica: mientras se clasificaba,
+    # otra petición simultánea con el mismo ticket ha podido crearlo.
+    ticket, created = db.create_ticket_if_new(payload.title, payload.description, **classification)
+    if not created:
+        raise DuplicateTicketError(ticket)
+    return ticket
 
 
 def apply_ticket_update(ticket_id: int, payload: TicketUpdate) -> dict:

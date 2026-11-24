@@ -151,42 +151,79 @@ def create_ticket(
     tags: list[str],
     created_at: str | None = None,
 ) -> dict:
-    created_at = created_at or utc_now()
     with connect() as conn:
-        cursor = conn.execute(
-            """
-            INSERT INTO tickets
-                (title, description, category, priority, tags, status, status_changed_at,
-                 due_at, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)
-            """,
-            (
-                title,
-                description,
-                category,
-                priority,
-                json.dumps(tags),
-                created_at,
-                due_at_for(created_at, priority),
-                created_at,
-                created_at,
-            ),
-        )
-        ticket_id = cursor.lastrowid
+        ticket_id = _insert_ticket(conn, title, description, category, priority, tags, created_at)
     return get_ticket(ticket_id)
+
+
+def create_ticket_if_new(
+    title: str, description: str, category: str, priority: str, tags: list[str]
+) -> tuple[dict, bool]:
+    """Crea el ticket salvo que ya exista uno igual. Devuelve (ticket, creado).
+
+    La comprobación y la inserción van en la misma transacción BEGIN IMMEDIATE, que toma
+    el bloqueo de escritura de SQLite: dos altas simultáneas del mismo ticket se
+    serializan (también entre procesos) y la segunda ve la primera y no inserta.
+    """
+    with connect() as conn:
+        conn.commit()  # cierra la transacción implícita que pudiera dejar la migración
+        conn.execute("BEGIN IMMEDIATE")
+        existing_id = _find_duplicate_id(conn, title, description)
+        if existing_id is None:
+            ticket_id = _insert_ticket(conn, title, description, category, priority, tags)
+    if existing_id is not None:
+        return get_ticket(existing_id), False
+    return get_ticket(ticket_id), True
+
+
+def _insert_ticket(
+    conn: sqlite3.Connection,
+    title: str,
+    description: str,
+    category: str,
+    priority: str,
+    tags: list[str],
+    created_at: str | None = None,
+) -> int:
+    created_at = created_at or utc_now()
+    cursor = conn.execute(
+        """
+        INSERT INTO tickets
+            (title, description, category, priority, tags, status, status_changed_at,
+             due_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)
+        """,
+        (
+            title,
+            description,
+            category,
+            priority,
+            json.dumps(tags),
+            created_at,
+            due_at_for(created_at, priority),
+            created_at,
+            created_at,
+        ),
+    )
+    return cursor.lastrowid
 
 
 def find_duplicate_ticket(title: str, description: str) -> dict | None:
     """Ticket existente con el mismo título y descripción (sin distinguir mayúsculas)."""
     with connect() as conn:
-        # NOCASE de SQLite solo pliega ASCII; casefold también cubre «Ó»/«ó», «Ñ»/«ñ»…
-        conn.create_function("casefold", 1, str.casefold, deterministic=True)
-        row = conn.execute(
-            "SELECT id FROM tickets WHERE casefold(title) = ? "
-            "AND casefold(description) = ? ORDER BY id LIMIT 1",
-            (title.casefold(), description.casefold()),
-        ).fetchone()
-    return get_ticket(row["id"]) if row else None
+        existing_id = _find_duplicate_id(conn, title, description)
+    return get_ticket(existing_id) if existing_id is not None else None
+
+
+def _find_duplicate_id(conn: sqlite3.Connection, title: str, description: str) -> int | None:
+    # NOCASE de SQLite solo pliega ASCII; casefold también cubre «Ó»/«ó», «Ñ»/«ñ»…
+    conn.create_function("casefold", 1, str.casefold, deterministic=True)
+    row = conn.execute(
+        "SELECT id FROM tickets WHERE casefold(title) = ? "
+        "AND casefold(description) = ? ORDER BY id LIMIT 1",
+        (title.casefold(), description.casefold()),
+    ).fetchone()
+    return row["id"] if row else None
 
 
 def get_ticket(ticket_id: int) -> dict | None:
