@@ -68,7 +68,17 @@ def classify_safely(title: str, description: str) -> dict:
     return dict(classifier.FALLBACK_CLASSIFICATION)
 
 
+class DuplicateTicketError(Exception):
+    def __init__(self, existing: dict) -> None:
+        super().__init__(existing["id"])
+        self.existing = existing
+
+
 def create_classified_ticket(payload: TicketCreate) -> dict:
+    # Se comprueba antes de clasificar para no gastar una llamada al LLM en un duplicado.
+    existing = db.find_duplicate_ticket(payload.title, payload.description)
+    if existing is not None:
+        raise DuplicateTicketError(existing)
     classification = classify_safely(payload.title, payload.description)
     return db.create_ticket(payload.title, payload.description, **classification)
 
@@ -95,7 +105,13 @@ def health() -> dict[str, str]:
 
 @app.post("/tickets", status_code=201, response_model=Ticket)
 def create_ticket(payload: TicketCreate) -> dict:
-    return create_classified_ticket(payload)
+    try:
+        return create_classified_ticket(payload)
+    except DuplicateTicketError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Ya existe un ticket con el mismo título y descripción (#{exc.existing['id']})",
+        ) from exc
 
 
 @app.get("/tickets", response_model=list[Ticket])
@@ -196,15 +212,18 @@ def create_ticket_from_form(
 ) -> HTMLResponse:
     try:
         payload = TicketCreate(title=title, description=description)
-    except ValidationError:
-        errors = "El título (1–200) y la descripción (1–5000) son obligatorios."
+        create_classified_ticket(payload)
+    except (ValidationError, DuplicateTicketError) as exc:
+        if isinstance(exc, DuplicateTicketError):
+            error = f"Ya existe el ticket #{exc.existing['id']} con ese título y descripción."
+        else:
+            error = "El título (1–200) y la descripción (1–5000) son obligatorios."
         return templates.TemplateResponse(
             request,
             "_form_error.html",
-            {"error": errors},
+            {"error": error},
             headers={"HX-Retarget": "#form-error", "HX-Reswap": "innerHTML"},
         )
-    create_classified_ticket(payload)
     context = board_context(category, priority, status, sort, order, overdue)
     return templates.TemplateResponse(
         request, "_tickets_table.html", context, headers={"HX-Trigger": "ticket-created"}

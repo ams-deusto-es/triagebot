@@ -98,7 +98,7 @@ El stack cerrado no está aquí: está en `BRIEF.md`, sección «Restricciones t
 | Endpoint | Devuelve | Errores |
 |---|---|---|
 | `GET /health` | `200 {"status": "ok"}` | — |
-| `POST /tickets` | `201` con el ticket ya clasificado | `422` si título o descripción vacíos o demasiado largos |
+| `POST /tickets` | `201` con el ticket ya clasificado | `422` si título o descripción vacíos o demasiado largos · `409` si el ticket ya existe |
 | `GET /tickets` | `200` lista, filtrable por `category`, `priority`, `status` y `overdue` (`true`/`false`) | — |
 | `PATCH /tickets/{ticket_id}` | `200` ticket actualizado | `404` si no existe · `422` si el valor no está en el enum, si `status`/`priority` son `null` o si el técnico no existe |
 | `GET /technicians` | `200` lista ordenada por nombre | — |
@@ -139,6 +139,10 @@ Errores:
 
 - `422` si `title` está vacío (o solo espacios) o supera 200 caracteres.
 - `422` si `description` está vacía (o solo espacios) o supera 5000 caracteres.
+- `409` si ya existe un ticket (en cualquier estado) con el mismo `title` y la misma `description`,
+  tras trim y sin distinguir mayúsculas. El `detail` indica el id del ticket existente. La
+  comprobación se hace antes de clasificar, así que un duplicado no llama al LLM. En la interfaz
+  web, el formulario muestra el error sin crear el ticket.
 
 ### `GET /tickets`
 

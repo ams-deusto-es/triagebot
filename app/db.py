@@ -176,6 +176,19 @@ def create_ticket(
     return get_ticket(ticket_id)
 
 
+def find_duplicate_ticket(title: str, description: str) -> dict | None:
+    """Ticket existente con el mismo título y descripción (sin distinguir mayúsculas)."""
+    with connect() as conn:
+        # NOCASE de SQLite solo pliega ASCII; casefold también cubre «Ó»/«ó», «Ñ»/«ñ»…
+        conn.create_function("casefold", 1, str.casefold, deterministic=True)
+        row = conn.execute(
+            "SELECT id FROM tickets WHERE casefold(title) = ? "
+            "AND casefold(description) = ? ORDER BY id LIMIT 1",
+            (title.casefold(), description.casefold()),
+        ).fetchone()
+    return get_ticket(row["id"]) if row else None
+
+
 def get_ticket(ticket_id: int) -> dict | None:
     with connect() as conn:
         row = conn.execute(
