@@ -82,9 +82,22 @@ def update_ticket(ticket_id: int, payload: TicketUpdate) -> dict:
 # --- Interfaz web (HTML + HTMX) ---------------------------------------------
 
 
-def board_context(category: str | None, priority: str | None, status: str | None) -> dict:
+def board_context(
+    category: str | None,
+    priority: str | None,
+    status: str | None,
+    sort: str | None = None,
+    order: str | None = None,
+) -> dict:
+    # Por defecto: por estado, con los tickets abiertos antes que los cerrados.
+    sort = sort if sort in db.SORT_EXPRESSIONS else "status"
+    order = order if order in ("asc", "desc") else "asc"
     return {
-        "tickets": db.list_tickets(category=category, priority=priority, status=status),
+        "tickets": db.list_tickets(
+            category=category, priority=priority, status=status, sort=sort, order=order
+        ),
+        "sort": sort,
+        "order": order,
         "categories": sorted(ALLOWED_CATEGORIES),
         "priorities": sorted(ALLOWED_PRIORITIES),
         "statuses": ["open", "in_progress", "closed"],
@@ -102,8 +115,10 @@ def tickets_table(
     category: str | None = None,
     priority: str | None = None,
     status: str | None = None,
+    sort: str | None = None,
+    order: str | None = None,
 ) -> HTMLResponse:
-    context = board_context(category, priority, status)
+    context = board_context(category, priority, status, sort, order)
     return templates.TemplateResponse(request, "_tickets_table.html", context)
 
 
@@ -115,6 +130,8 @@ def create_ticket_from_form(
     category: Annotated[str | None, Form()] = None,
     priority: Annotated[str | None, Form()] = None,
     status: Annotated[str | None, Form()] = None,
+    sort: Annotated[str | None, Form()] = None,
+    order: Annotated[str | None, Form()] = None,
 ) -> HTMLResponse:
     try:
         payload = TicketCreate(title=title, description=description)
@@ -127,7 +144,7 @@ def create_ticket_from_form(
             headers={"HX-Retarget": "#form-error", "HX-Reswap": "innerHTML"},
         )
     create_classified_ticket(payload)
-    context = board_context(category, priority, status)
+    context = board_context(category, priority, status, sort, order)
     return templates.TemplateResponse(
         request, "_tickets_table.html", context, headers={"HX-Trigger": "ticket-created"}
     )
@@ -142,6 +159,8 @@ def update_ticket_from_form(
     category: Annotated[str | None, Form()] = None,
     priority: Annotated[str | None, Form()] = None,
     status: Annotated[str | None, Form()] = None,
+    sort: Annotated[str | None, Form()] = None,
+    order: Annotated[str | None, Form()] = None,
 ) -> HTMLResponse:
     try:
         changes = TicketUpdate(status=ticket_status, priority=ticket_priority)
@@ -149,5 +168,5 @@ def update_ticket_from_form(
         raise HTTPException(status_code=422, detail="Valor no permitido") from exc
     if db.update_ticket(ticket_id, changes.model_dump(exclude_none=True)) is None:
         raise HTTPException(status_code=404, detail="Ticket not found")
-    context = board_context(category, priority, status)
+    context = board_context(category, priority, status, sort, order)
     return templates.TemplateResponse(request, "_tickets_table.html", context)
