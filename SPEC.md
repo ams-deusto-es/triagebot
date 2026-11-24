@@ -24,9 +24,39 @@ Campos mínimos:
 | `category` | str | `bug`, `feature_request`, `question`, `urgent` |
 | `priority` | str | `P1`, `P2`, `P3` |
 | `tags` | list[str] | Lista, puede estar vacía |
-| `status` | str | `open`, `in_progress`, `closed` |
+| `status` | str | `open`, `in_progress`, `resolved`, `closed` |
+| `status_changed_at` | datetime | UTC. Al crear = `created_at`; se actualiza solo cuando `status` cambia de valor |
+| `assignee_id` | int \| null | Técnico responsable. `null` al crear |
+| `assignee` | str \| null | Nombre del técnico (solo lectura) |
+| `due_at` | datetime | UTC. `created_at` + plazo de la prioridad (ver §2.1). Se recalcula si cambia `priority` |
+| `overdue` | bool | Calculado en cada consulta: `status` ∉ {`resolved`, `closed`} y `due_at` < ahora |
 | `created_at` | datetime | UTC, generado en servidor |
 | `updated_at` | datetime | UTC, actualizado en cambios relevantes |
+
+En la interfaz `in_progress` se muestra como «in-progress». La API acepta `"in-progress"` como alias
+de entrada (en `PATCH` y en el filtro `status`), pero siempre devuelve `in_progress`, que es el valor
+que exigen los tests de aceptación.
+
+### 2.1 Plazos de resolución (SLA)
+
+| Prioridad | Plazo |
+|---|---|
+| `P1` | 4 horas |
+| `P2` | 24 horas |
+| `P3` | 7 días |
+
+Un ticket `resolved` o `closed` nunca está vencido: el plazo es de resolución.
+
+### Technician
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `id` | int | Autogenerado |
+| `name` | str | Obligatorio, 1–100 caracteres tras trim. Único sin distinguir mayúsculas |
+| `created_at` | datetime | UTC, generado en servidor |
+
+Las bases de datos existentes se migran solas al arrancar (columnas nuevas con `ALTER TABLE`):
+`due_at` se rellena desde `created_at` + plazo y `status_changed_at` desde `updated_at`.
 
 Valores por defecto:
 
@@ -68,9 +98,12 @@ El stack cerrado no está aquí: está en `BRIEF.md`, sección «Restricciones t
 | Endpoint | Devuelve | Errores |
 |---|---|---|
 | `GET /health` | `200 {"status": "ok"}` | — |
-| `POST /tickets` | `201` con el ticket ya clasificado | `422` si título o descripción vacíos o demasiado largos |
-| `GET /tickets` | `200` lista, filtrable por `category`, `priority` y `status` | — |
-| `PATCH /tickets/{ticket_id}` | `200` ticket actualizado | `404` si no existe · `422` si el valor no está en el enum |
+| `POST /tickets` | `201` con el ticket ya clasificado | `422` si título o descripción vacíos o demasiado largos · `409` si el ticket ya existe |
+| `GET /tickets` | `200` lista, filtrable por `category`, `priority`, `status` y `overdue` (`true`/`false`) | — |
+| `GET /tickets/stats` | `200` conteos `total`, `by_category`, `by_priority`, `by_status` (ver abajo) | — |
+| `PATCH /tickets/{ticket_id}` | `200` ticket actualizado | `404` si no existe · `422` si el valor no está en el enum, si `status`/`priority` son `null` o si el técnico no existe |
+| `GET /technicians` | `200` lista ordenada por nombre | — |
+| `POST /technicians` | `201` técnico creado | `422` nombre vacío o > 100 · `409` nombre duplicado |
 | `GET /` | `200` HTML con el tablero (ver §6) | — |
 
 ### `POST /tickets`
@@ -107,6 +140,24 @@ Errores:
 
 - `422` si `title` está vacío (o solo espacios) o supera 200 caracteres.
 - `422` si `description` está vacía (o solo espacios) o supera 5000 caracteres.
+- `409` si ya existe un ticket (en cualquier estado) con el mismo `title` y la misma `description`,
+  tras trim y sin distinguir mayúsculas. El `detail` indica el id del ticket existente. La
+  comprobación se hace antes de clasificar, así que un duplicado no llama al LLM. En la interfaz
+  web, el formulario muestra el error sin crear el ticket.
+
+### `GET /tickets/stats`
+
+Conteos de todos los tickets (sin filtros). Cada grupo incluye todos los valores del enum, con `0`
+si no hay tickets, y la suma de cada grupo es igual a `total`.
+
+```json
+{
+  "total": 4,
+  "by_category": {"bug": 2, "feature_request": 0, "question": 1, "urgent": 1},
+  "by_priority": {"P1": 2, "P2": 1, "P3": 1},
+  "by_status": {"open": 2, "in_progress": 1, "resolved": 0, "closed": 1}
+}
+```
 
 ### `GET /tickets`
 
@@ -120,7 +171,8 @@ Devuelve `200` con una lista de tickets con la misma forma que la respuesta de `
 
 ### `PATCH /tickets/{ticket_id}`
 
-Solo se pueden cambiar `status` y `priority`. El resto de campos son inmutables tras la creación.
+Solo se pueden cambiar `status`, `priority` y `assignee_id`. El resto de campos son inmutables tras
+la creación. Un campo omitido no se toca; `"assignee_id": null` quita el responsable.
 
 ```json
 {
@@ -129,8 +181,9 @@ Solo se pueden cambiar `status` y `priority`. El resto de campos son inmutables 
 }
 ```
 
-- `status`: `open`, `in_progress`, `closed`
+- `status`: `open`, `in_progress` (o `in-progress`), `resolved`, `closed`
 - `priority`: `P1`, `P2`, `P3`
+- `assignee_id`: id de un técnico existente o `null`
 
 Errores:
 
@@ -181,7 +234,12 @@ El SPEC no fija el prompt: lo decidís vosotros. Sí es obligatorio que la salid
 
 1. Formulario para crear ticket.
 2. Tablero de tickets.
-3. Filtros por categoría, prioridad y estado.
+3. Filtros por categoría, prioridad, estado y vencimiento (todos / vencidos / en plazo).
+4. Alta de técnicos (nombre); al dar uno de alta se refrescan los desplegables de la tabla.
+5. En cada fila: desplegable de responsable («Sin asignar» + técnicos), fecha límite con 🚩 si está
+   vencido, y bajo el estado «desde hace …» calculado a partir de `status_changed_at`.
+6. Columnas ordenables: prioridad, estado (en orden del ciclo de vida), vence (vencidos primero en
+   orden ascendente) y creado.
 
 Recomendación:
 

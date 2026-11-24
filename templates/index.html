@@ -4,23 +4,98 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TriageBot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script>
+    try { document.documentElement.dataset.theme = localStorage.getItem("theme") || "default"; } catch (e) {}
+  </script>
   <style>
+    /* --- Temas: "default" = claro original; "bofh" = terminal --- */
+    .t-b { display: none; }
+    html[data-theme="bofh"] .t-b { display: inline; }
+    html[data-theme="bofh"] .t-d { display: none; }
+    html[data-theme="bofh"] body { font-family: "JetBrains Mono","Fira Code",ui-monospace,monospace; background:#000 !important; color:#4ade80 !important; }
+    html[data-theme="bofh"] ::selection { background:#00ff66; color:#000; }
+    html[data-theme="bofh"] body::after { content:""; pointer-events:none; position:fixed; inset:0;
+      background:repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px); }
+    html[data-theme="bofh"] h1, html[data-theme="bofh"] h2 { text-shadow:0 0 6px rgba(0,255,102,.7); color:#4ade80; }
+    html[data-theme="bofh"] h1 .t-b::after { content:"█"; animation:blink 1s steps(1) infinite; margin-left:.25rem; }
+    @keyframes blink { 50% { opacity:0; } }
+    html[data-theme="bofh"] .bg-white { background:#000 !important; }
+    html[data-theme="bofh"] .rounded-lg, html[data-theme="bofh"] .rounded-md, html[data-theme="bofh"] .rounded-full, html[data-theme="bofh"] .rounded { border-radius:0 !important; }
+    html[data-theme="bofh"] .shadow-sm { box-shadow:none !important; }
+    html[data-theme="bofh"] .ring-1 { box-shadow:0 0 0 1px #166534 !important; }
+    html[data-theme="bofh"] .text-slate-600, html[data-theme="bofh"] .text-slate-500, html[data-theme="bofh"] .text-slate-700 { color:#15803d !important; }
+    html[data-theme="bofh"] label, html[data-theme="bofh"] .font-medium { color:#16a34a; }
+    html[data-theme="bofh"] .border-slate-300 { border-color:#14532d !important; }
+    html[data-theme="bofh"] select, html[data-theme="bofh"] input, html[data-theme="bofh"] textarea { background:#000 !important; color:#00ff66 !important; border-color:#14532d !important; }
+    html[data-theme="bofh"] select:focus, html[data-theme="bofh"] input:focus, html[data-theme="bofh"] textarea:focus { outline:1px solid #00ff66; }
+    html[data-theme="bofh"] .divide-y > * { border-color:#14532d !important; }
+    html[data-theme="bofh"] .bg-slate-100 { background:#052e16 !important; color:#86efac; }
+    html[data-theme="bofh"] button[type="submit"] { background:#052e16 !important; color:#86efac !important; border:1px solid #4ade80; }
+    html[data-theme="bofh"] button[type="submit"]:hover { background:#4ade80 !important; color:#000 !important; }
+    html[data-theme="bofh"] .bg-red-100, html[data-theme="bofh"] .bg-red-50 { background:#000 !important; color:#f87171 !important; border:1px solid #ef4444; }
+    html[data-theme="bofh"] .bg-orange-100 { background:#000 !important; color:#fb923c !important; border:1px solid #f97316; }
+    html[data-theme="bofh"] .bg-sky-100 { background:#000 !important; color:#22d3ee !important; border:1px solid #06b6d4; }
+    html[data-theme="bofh"] .bg-amber-50 { background:#000 !important; color:#fbbf24 !important; }
+    html[data-theme="bofh"] .bg-indigo-50 { background:#000 !important; color:#22c55e !important; border:1px solid #14532d; }
+    html[data-theme="bofh"] .border-red-300 { border-color:#ef4444 !important; }
+    html[data-theme="bofh"] .border-amber-300 { border-color:#f59e0b !important; }
+    /* --- Tema Deusto: colores de marca sobre el tema default --- */
+    html[data-theme="deusto"] body { font-family:"Montserrat",system-ui,sans-serif; background:#f4f4f4 !important; color:#121212 !important; }
+    html[data-theme="deusto"] h1 { color:#003f9c; }
+    html[data-theme="deusto"] h2 { color:#0153ce; }
+    #deusto-logo { display:none; }
+    html[data-theme="deusto"] #deusto-logo { display:block; height:50px; width:auto; margin-bottom:1rem; }
+    html[data-theme="deusto"] .rounded-lg, html[data-theme="deusto"] .rounded-md, html[data-theme="deusto"] .rounded-full, html[data-theme="deusto"] .rounded { border-radius:0 !important; }
+    html[data-theme="deusto"] .shadow-sm { box-shadow:none !important; }
+    html[data-theme="deusto"] .ring-slate-200 { --tw-ring-color:#d6d6d6 !important; }
+    html[data-theme="deusto"] .text-slate-600, html[data-theme="deusto"] .text-slate-500 { color:#6e6e6e !important; }
+    html[data-theme="deusto"] .border-slate-300 { border-color:#d6d6d6 !important; }
+    html[data-theme="deusto"] input:focus, html[data-theme="deusto"] textarea:focus, html[data-theme="deusto"] select:focus { outline:2px solid #0153ce; outline-offset:0; }
+    html[data-theme="deusto"] button[type="submit"] { background:linear-gradient(225deg,#0053ce,#13448d) !important; text-transform:uppercase; letter-spacing:.04em; font-weight:700; }
+    html[data-theme="deusto"] button[type="submit"]:hover { background:#003f9c !important; }
+    html[data-theme="deusto"] thead.bg-slate-100 { background:#003f9c !important; }
+    html[data-theme="deusto"] thead th { color:#fff; text-transform:uppercase; letter-spacing:.04em; }
+    html[data-theme="deusto"] .bg-indigo-50 { background:#e6eefa !important; }
+    html[data-theme="deusto"] .text-indigo-700 { color:#0153ce !important; }
+    html[data-theme="deusto"] .bg-sky-100 { background:#dbe7f8 !important; color:#003f9c !important; }
+    #theme-picker { position:fixed; top:.75rem; right:.75rem; z-index:50; }
     .htmx-indicator { display: none; }
     .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
+  <div id="theme-picker" class="text-xs">
+    <label for="theme-select" class="sr-only">Tema</label>
+    <select id="theme-select" aria-label="Tema" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-slate-900">
+      <option value="default">Tema: default</option>
+      <option value="deusto">Tema: Deusto</option>
+      <option value="bofh">Tema: BOFH</option>
+    </select>
+  </div>
+  <script>
+    (function () {
+      var sel = document.getElementById("theme-select");
+      sel.value = document.documentElement.dataset.theme || "default";
+      sel.addEventListener("change", function () {
+        document.documentElement.dataset.theme = sel.value;
+        try { localStorage.setItem("theme", sel.value); } catch (e) {}
+      });
+    })();
+  </script>
   <main class="mx-auto max-w-6xl p-6">
-    <h1 class="text-3xl font-bold">TriageBot</h1>
-    <p class="mt-2 text-slate-600">Tablero de incidencias con clasificación automática por IA.</p>
+    <img id="deusto-logo" src="https://www.deusto.es/estaticos/ud/img/logoDeustoMenu.png" alt="Universidad de Deusto" width="168" height="50">
+    <h1 class="text-3xl font-bold"><span class="t-d">TriageBot</span><span class="t-b">root@triagebot:~# ./triage --ruthless</span></h1>
+    <p class="mt-2 text-slate-600"><span class="t-d">Tablero de incidencias con clasificación automática por IA.</span><span class="t-b">/* Consola del Operador Bastardo. Los usuarios abren tickets, tú decides si merecen vivir. */</span></p>
 
     <section class="mt-6 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-200">
-      <h2 class="text-lg font-semibold">Nuevo ticket</h2>
+      <h2 class="text-lg font-semibold"><span class="t-d">Nuevo ticket</span><span class="t-b">&gt; nuevo_lusuario_problema</span></h2>
       <form class="mt-3 space-y-3"
             hx-post="/ui/tickets"
-            hx-include="#filters"
+            hx-include="#filters, #sort-state-sort, #sort-state-order"
             hx-target="#tickets-table"
             hx-swap="innerHTML"
             hx-disabled-elt="find button"
@@ -39,16 +114,40 @@
         <div class="flex items-center gap-3">
           <button type="submit"
                   class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
-            Crear y clasificar
+            <span class="t-d">Crear y clasificar</span><span class="t-b">[ EJECUTAR ]</span>
           </button>
-          <span class="htmx-indicator text-sm text-slate-500">Clasificando con IA…</span>
+          <span class="htmx-indicator text-sm text-slate-500"><span class="t-d">Clasificando con IA…</span><span class="t-b">Juzgando al usuario…</span></span>
         </div>
       </form>
+    </section>
+
+    <section class="mt-6 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <h2 class="text-lg font-semibold"><span class="t-d">Técnicos</span><span class="t-b">&gt; operadores_de_guardia</span></h2>
+      <form class="mt-3 flex flex-wrap items-end gap-3"
+            hx-post="/ui/technicians"
+            hx-target="#technicians"
+            hx-swap="innerHTML"
+            hx-disabled-elt="find button"
+            hx-on::after-request="if (event.detail.xhr.getResponseHeader('HX-Trigger')) this.reset()">
+        <div>
+          <label for="technician-name" class="block text-sm font-medium">Nombre</label>
+          <input id="technician-name" name="name" type="text" required maxlength="100"
+                 class="mt-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm">
+        </div>
+        <button type="submit"
+                class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
+          <span class="t-d">Dar de alta</span><span class="t-b">[ RECLUTAR ]</span>
+        </button>
+      </form>
+      <div id="technicians" class="mt-3">
+        {% include "_technicians.html" %}
+      </div>
     </section>
 
     <section class="mt-6">
       <form id="filters" class="flex flex-wrap items-end gap-3"
             hx-get="/ui/tickets"
+            hx-include="#sort-state-sort, #sort-state-order"
             hx-trigger="change"
             hx-target="#tickets-table"
             hx-swap="innerHTML">
@@ -70,12 +169,24 @@
           <label for="filter-status" class="block text-sm font-medium">Estado</label>
           <select id="filter-status" name="status" class="mt-1 rounded-md border border-slate-300 px-2 py-1 text-sm">
             <option value="">Todos</option>
-            {% for value in statuses %}<option value="{{ value }}">{{ value }}</option>{% endfor %}
+            {% for value in statuses %}<option value="{{ value }}">{{ status_labels[value] }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="filter-overdue" class="block text-sm font-medium">Vencimiento</label>
+          <select id="filter-overdue" name="overdue" class="mt-1 rounded-md border border-slate-300 px-2 py-1 text-sm">
+            <option value="">Todos</option>
+            <option value="true">🚩 Vencidos</option>
+            <option value="false">En plazo</option>
           </select>
         </div>
       </form>
 
-      <div id="tickets-table" class="mt-4 overflow-x-auto">
+      <div id="tickets-table" class="mt-4 overflow-x-auto"
+           hx-get="/ui/tickets"
+           hx-trigger="technicians-changed from:body"
+           hx-include="#filters, #sort-state-sort, #sort-state-order"
+           hx-swap="innerHTML">
         {% include "_tickets_table.html" %}
       </div>
     </section>
