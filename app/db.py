@@ -78,10 +78,19 @@ def get_ticket(ticket_id: int) -> dict | None:
     return _row_to_dict(row) if row else None
 
 
+SORT_EXPRESSIONS = {
+    "priority": "priority",
+    "status": "CASE status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END",
+    "created_at": "created_at",
+}
+
+
 def list_tickets(
     category: str | None = None,
     priority: str | None = None,
     status: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
 ) -> list[dict]:
     filters = {"category": category, "priority": priority, "status": status}
     clauses = [f"{column} = ?" for column, value in filters.items() if value]
@@ -89,7 +98,11 @@ def list_tickets(
     query = "SELECT * FROM tickets"
     if clauses:
         query += " WHERE " + " AND ".join(clauses)
-    query += " ORDER BY created_at DESC, id DESC"
+    if sort in SORT_EXPRESSIONS:
+        direction = "DESC" if order == "desc" else "ASC"
+        query += f" ORDER BY {SORT_EXPRESSIONS[sort]} {direction}, created_at DESC, id DESC"
+    else:
+        query += " ORDER BY created_at DESC, id DESC"
     with connect() as conn:
         rows = conn.execute(query, params).fetchall()
     return [_row_to_dict(row) for row in rows]

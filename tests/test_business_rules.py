@@ -66,3 +66,40 @@ def test_ticket_requires_title_and_description(client, monkeypatch, payload):
 
     assert response.status_code == 422
     assert client.get("/tickets").json() == []
+
+
+def _seed_for_sorting():
+    from app import db
+
+    db.create_ticket("a", "d", "bug", "P3", [], created_at="2026-01-01T10:00:00Z")
+    t2 = db.create_ticket("b", "d", "bug", "P1", [], created_at="2026-01-02T10:00:00Z")
+    t3 = db.create_ticket("c", "d", "bug", "P2", [], created_at="2026-01-03T10:00:00Z")
+    db.update_ticket(t2["id"], {"status": "closed"})
+    db.update_ticket(t3["id"], {"status": "in_progress"})
+
+
+def _titles(response):
+    import re
+
+    return re.findall(r'<div class="font-medium">(\w)</div>', response.text)
+
+
+def test_table_default_sort_is_open_before_closed(client):
+    _seed_for_sorting()
+    assert _titles(client.get("/ui/tickets")) == ["a", "c", "b"]
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("sort=priority&order=asc", ["b", "c", "a"]),
+        ("sort=priority&order=desc", ["a", "c", "b"]),
+        ("sort=created_at&order=asc", ["a", "b", "c"]),
+        ("sort=created_at&order=desc", ["c", "b", "a"]),
+        ("sort=status&order=desc", ["b", "c", "a"]),
+        ("sort=evil;drop&order=x", ["a", "c", "b"]),
+    ],
+)
+def test_table_sorting(client, query, expected):
+    _seed_for_sorting()
+    assert _titles(client.get(f"/ui/tickets?{query}")) == expected
