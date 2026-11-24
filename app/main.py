@@ -126,6 +126,23 @@ def list_tickets(
     )
 
 
+@app.get("/tickets/stats")
+def ticket_stats() -> dict:
+    """Conteos por categoría, prioridad y estado. Los valores sin tickets aparecen con 0."""
+    groups = {
+        "by_category": ("category", sorted(ALLOWED_CATEGORIES)),
+        "by_priority": ("priority", sorted(ALLOWED_PRIORITIES)),
+        "by_status": ("status", STATUSES),
+    }
+    stats: dict = {}
+    for key, (column, values) in groups.items():
+        counts = db.count_tickets_by(column)
+        # Se conservan valores inesperados en BD para que las sumas cuadren con el total.
+        stats[key] = {value: counts.pop(value, 0) for value in values} | counts
+    stats["total"] = sum(stats["by_status"].values())
+    return {"total": stats.pop("total"), **stats}
+
+
 @app.patch("/tickets/{ticket_id}", response_model=Ticket)
 def update_ticket(ticket_id: int, payload: TicketUpdate) -> dict:
     return apply_ticket_update(ticket_id, payload)

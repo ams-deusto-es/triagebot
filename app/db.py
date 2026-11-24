@@ -241,6 +241,17 @@ def list_tickets(
     return [_row_to_dict(row) for row in rows]
 
 
+def count_tickets_by(column: str) -> dict[str, int]:
+    """Número de tickets por cada valor de `column` (category, priority o status)."""
+    if column not in ("category", "priority", "status"):
+        raise ValueError(column)
+    with connect() as conn:
+        rows = conn.execute(
+            f"SELECT {column} AS value, COUNT(*) AS n FROM tickets GROUP BY {column}"
+        ).fetchall()
+    return {row["value"]: row["n"] for row in rows}
+
+
 def update_ticket(ticket_id: int, changes: dict) -> dict | None:
     ticket = get_ticket(ticket_id)
     if ticket is None:
